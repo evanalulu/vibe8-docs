@@ -11,6 +11,7 @@
 - [Technology Stack](#technology-stack)
 - [System Diagram](#system-diagram)
 - [Project Structure](#project-structure)
+- [Layered Architecture](#layered-architecture)
 - [Data Flows](#data-flows)
 - [Related Documentation](#related-documentation)
 
@@ -65,47 +66,37 @@ Vibe8 is a code quality analysis platform that provides static analysis metrics 
 ## System Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                    │
-│  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  Next.js 14 (App Router)                                        │    │
-│  │  - Auth0 SDK for authentication                                 │    │
-│  │  - API client with Bearer token                                 │    │
-│  │  - Job polling hook (useJobPolling)                             │    │
-│  └─────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼ HTTPS + JWT
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND                                     │
-│                                                                          │
-│  ┌──────────────────────┐     ┌──────────────────────┐                  │
-│  │  FastAPI (API)       │     │  ARQ Worker          │                  │
-│  │  - Auth middleware   │     │  - 20 concurrent jobs│                  │
-│  │  - Rate limiting     │     │  - 600s timeout      │                  │
-│  │  - CORS              │     │  - Metric collectors │                  │
-│  └──────────┬───────────┘     └──────────┬───────────┘                  │
-│             │                            │                               │
-│             ▼                            ▼                               │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                        INFRASTRUCTURE                             │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐   │   │
-│  │  │ PostgreSQL  │  │    Redis    │  │   Metric Collectors     │   │   │
-│  │  │ - users     │  │ - job queue │  │   (10 static analyzers) │   │   │
-│  │  │ - analysis  │  │ - caching   │  │                         │   │   │
-│  │  │ - jobs      │  │             │  │                         │   │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────────┘   │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                          EXTERNAL SERVICES                               │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐          │
-│  │     Auth0       │  │     GitHub      │  │  Claude Desktop │          │
-│  │  (OAuth 2.0)    │  │   (repo clone)  │  │   (MCP Server)  │          │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘          │
-└─────────────────────────────────────────────────────────────────────────┘
+                                                    ┌───────────┐
+┌───────────────────────────────────────────────────┤  EXTERNAL │
+│              PRESENTATION LAYER                   │           │
+│  ┌─────────────────┐    ┌─────────────────┐       │ ┌───────┐ │
+│  │ Next.js Frontend│    │   MCP Server    │       │ │ Auth0 │ │
+│  │ (Auth0 SDK)     │    │ (Claude Desktop)│◄──────┼─┤OAuth  │ │
+│  └────────┬────────┘    └────────┬────────┘       │ └───┬───┘ │
+└───────────┼──────────────────────┼────────────────┤     │     │
+            │ HTTPS + JWT          │                │     │     │
+            ▼                      ▼                │     │     │
+┌───────────────────────────────────────────────────┤     │     │
+│              APPLICATION LAYER                    │     │     │
+│  ┌────────────────────────────────────────────┐   │     │     │
+│  │ FastAPI (api/)                             │◄──┼─────┘     │
+│  │ • Auth middleware  • Rate limiting  • CORS │   │ JWT verify│
+│  └────────────────────────────────────────────┘   │           │
+│  ┌──────────────────────┐  ┌──────────────────┐   │           │
+│  │ ARQ Workers          │  │ Redis            │   │           │
+│  │ (application/)       │◄─┤ (job queue)      │   │           │
+│  │ • 20 concurrent jobs │  │                  │   │           │
+│  └──────────────────────┘  └──────────────────┘   │           │
+└───────────────────────────────────────────────────┴───────────┘
+            │
+            ▼
+┌───────────────────────────────────────────────────────────────┐
+│              INFRASTRUCTURE LAYER                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌───────────────────────┐  │
+│  │ PostgreSQL  │  │ GitHub      │  │ Metrics Collectors    │  │
+│  │ (database/) │  │ (github/)   │  │ (metrics/collectors/) │  │
+│  └─────────────┘  └─────────────┘  └───────────────────────┘  │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ## Project Structure
@@ -136,6 +127,36 @@ frontend/
 ├── lib/                  # Utilities (config, API client, hooks)
 └── types/                # TypeScript definitions
 ```
+
+## Layered Architecture
+
+The backend follows Clean Architecture with strict layer separation:
+
+```
+┌─────────────────────────────────────┐
+│  API Layer (api/)                   │  ← HTTP handling, validation
+├─────────────────────────────────────┤
+│  Application Layer (application/)   │  ← Business logic, workers
+├─────────────────────────────────────┤
+│  Domain Layer (domain/)             │  ← Entities, schemas
+├─────────────────────────────────────┤
+│  Infrastructure Layer (infra/)      │  ← Database, external services
+├─────────────────────────────────────┤
+│  Core Layer (core/)                 │  ← Configuration, utilities
+└─────────────────────────────────────┘
+```
+
+### Layer Responsibilities
+
+| Layer | Responsibility | May Depend On |
+|-------|---------------|---------------|
+| **API** | HTTP handling, validation, response formatting | Application, Domain |
+| **Application** | Business logic, orchestration, workers | Domain, Infrastructure |
+| **Domain** | Business entities, validation rules | None (pure) |
+| **Infrastructure** | Database, metrics collectors, GitHub | Domain |
+| **Core** | Configuration, shared utilities | None |
+
+**Dependency Rule:** Dependencies flow inward only. Inner layers never import from outer layers.
 
 ## Data Flows
 

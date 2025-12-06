@@ -147,7 +147,7 @@ backend/tests/
 │   │   ├── test_file_tree_endpoint.py        # File tree endpoint (real DB)
 │   │   └── test_retrieval_with_db.py         # Analysis retrieval (real DB)
 │   └── workers/
-│       └── test_worker_integration.py        # ARQ worker with real Redis
+│       └── test_redis_integration.py         # Redis/ARQ job queue infrastructure
 └── e2e/                                      # 1 test file
     └── test_complete_analysis_workflow.py    # Complete user workflows
 ```
@@ -180,13 +180,13 @@ backend/tests/
 - `test_async_endpoints.py` - Async job endpoints with real Redis queue
 - `test_file_tree_endpoint.py` - File tree endpoint with real database
 - `test_retrieval_with_db.py` - Analysis retrieval with real database
-- `test_worker_integration.py` - ARQ worker with real Redis
+- `test_redis_integration.py` - Redis connectivity and ARQ job enqueuing
 
 #### E2E Tests (1 file)
 - **Purpose:** Complete user workflows end-to-end
 - **Marker:** `@pytest.mark.e2e` or `pytestmark = pytest.mark.e2e`
 - **Speed:** Slowest (~60 seconds)
-- **Dependencies:** Full stack (PostgreSQL + Redis + FastAPI)
+- **Dependencies:** Full stack (PostgreSQL + Redis + ARQ worker + FastAPI)
 
 **Test file:**
 - `test_complete_analysis_workflow.py` - Upload → enqueue → process → retrieve
@@ -304,24 +304,33 @@ All fixtures are defined in `tests/conftest.py` (consolidated root conftest).
   - Used in `tests/unit/api/test_rate_limiting.py`
 
 #### Redis Fixtures
-- **`redis_test_port`** (session scope)
-  - Returns: 6380 (test Redis port)
+
+Port is configured via `REDIS_PORT` env var (set to 6380 in conftest.py for test isolation from local Redis on default port 6379).
 
 - **`redis_container`** (session scope)
-  - **CI Environment:** Uses GitHub Actions Redis service on port 6380
-  - **Local Development:** Spawns Redis Docker container on port 6380
-  - Automatically detects environment via `CI` or `GITHUB_ACTIONS` env vars
-  - Auto-cleanup: Removes container after tests (local only)
+  - **CI Environment:** Verifies GitHub Actions Redis service connectivity
+  - **Local Development:** Starts Redis Docker container automatically
+  - Auto-cleanup: Stops container after tests (local only)
 
 - **`redis_client`** (function scope)
-  - Synchronous Redis client connected to port 6380
+  - Synchronous Redis client using `config.REDIS_PORT`
   - Auto-cleanup: flushes database after test
 
 - **`redis_pool`** (async function scope)
-  - Async ARQ Redis pool connected to port 6380
+  - Async ARQ Redis pool using `config.REDIS_PORT`
   - Used for async Redis operations in worker tests
   - Auto-cleanup: closes pool after test
 
+- **`reset_api_redis_pool`** (function scope, autouse)
+  - Resets global Redis pool in jobs API between tests
+  - Prevents "Event loop is closed" errors from stale pool references
+  - No need to explicitly use this fixture
+
+#### Worker Fixtures
+- **`arq_worker`** (module scope)
+  - Starts ARQ worker subprocess for e2e tests
+  - Waits for worker to connect to Redis
+  - Auto-cleanup: terminates worker after e2e module completes
 
 #### Data Fixtures
 - **`complete_metrics_data`** (function scope)
@@ -359,8 +368,6 @@ Database record creation helpers:
 - **`create_test_analysis(db_session, user_id, **overrides)`**
   - Creates test analysis run in database with complete default metrics
   - Returns AnalysisRun model instance
-  - Reduces ~10 lines of boilerplate per usage (68% code reduction)
-  - Used in 11+ tests across unit and integration suites
   - Usage: `analysis = create_test_analysis(db_session, user.id, submission_type="github")`
 
 - **`create_test_job(db_session, user_id, **overrides)`**
@@ -436,19 +443,19 @@ JWT token generation and Auth0 mocking:
   - Returns: JWT token string
   - Usage: `token = create_test_jwt("auth0|user-123", "user@example.com")`
 
-### Integration Test Setup
+### Integration and E2E Test Setup
 
 Integration tests require Redis for ARQ job queue testing. The setup automatically detects CI vs local environments. All Redis fixtures are documented in the [Redis Fixtures](#redis-fixtures) section above.
 
 #### Local Development Requirements
 - Docker must be installed and running
-- Integration tests will automatically start Redis container
+- Integration and e2e tests will automatically start Redis container
 - No manual setup required
 
 #### CI Environment
 - No Docker required
 - GitHub Actions provides Redis service on port 6380
-- Configured in `.github/workflows/backend-ci.yml`
+- Configured in `.github/workflows/ci.yml`
 
 ---
 
@@ -537,7 +544,7 @@ Coverage reporters configured: `text` and `html` (in `vitest.config.ts`)
 
 Tests run automatically on all pushes and pull requests to `main` and `dev` branches.
 
-**Workflow file:** `.github/workflows/backend-ci.yml`
+**Workflow file:** `.github/workflows/ci.yml`
 
 #### Frontend CI Job
 
@@ -581,18 +588,11 @@ Tests run automatically on all pushes and pull requests to `main` and `dev` bran
 
 **Environment Variables:**
 ```yaml
-CI: "true"                                          # CI flag for test fixtures
+CI: "true"                                          # Controls conftest.py behavior
 DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vibe8_test
-REDIS_HOST: localhost
-REDIS_PORT: 6380
-REDIS_PASSWORD: ""
-REDIS_DB: 0
-AUTH0_DOMAIN: test-domain.auth0.com
-AUTH0_API_AUDIENCE: https://test-api
-AUTH0_ISSUER: https://test-domain.auth0.com/
-ARQ_MAX_JOBS: 20
-ARQ_JOB_TIMEOUT: 600
-RATE_LIMIT_PER_MINUTE: "1000"                      # High limit to prevent flaky tests
+# Note: Other env vars handled by conftest.py or config.py defaults:
+# - AUTH0_*, RATE_LIMIT_PER_MINUTE, REDIS_PORT: Set in conftest.py at import time
+# - ARQ_*, REDIS_HOST, REDIS_PASSWORD, REDIS_DB: config.py defaults
 ```
 
 **Coverage Enforcement:**

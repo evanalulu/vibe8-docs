@@ -8,7 +8,6 @@
 
 ## Table of Contents
 - [Design Principles](#design-principles)
-- [Layered Architecture](#layered-architecture)
 - [Design Patterns](#design-patterns)
 - [Error Handling](#error-handling)
 - [Frontend Patterns](#frontend-patterns)
@@ -30,36 +29,6 @@
    - Frontend: `frontend/lib/config.ts`
 
    Never access `os.getenv()` or `process.env` directly in application code.
-
-## Layered Architecture
-
-The backend follows Clean Architecture with strict layer separation:
-
-```
-┌─────────────────────────────────────┐
-│  API Layer (api/)                   │  ← HTTP handling, validation
-├─────────────────────────────────────┤
-│  Application Layer (application/)   │  ← Business logic, workers
-├─────────────────────────────────────┤
-│  Domain Layer (domain/)             │  ← Entities, schemas
-├─────────────────────────────────────┤
-│  Infrastructure Layer (infra/)      │  ← Database, external services
-├─────────────────────────────────────┤
-│  Core Layer (core/)                 │  ← Configuration, utilities
-└─────────────────────────────────────┘
-```
-
-### Layer Contracts
-
-| Layer | Responsibility | May Depend On |
-|-------|---------------|---------------|
-| **API** | HTTP handling, validation, response formatting | Application, Domain |
-| **Application** | Business logic, orchestration, workers | Domain, Infrastructure |
-| **Domain** | Business entities, validation rules | None (pure) |
-| **Infrastructure** | Database, metrics collectors, GitHub | Domain |
-| **Core** | Configuration, shared utilities | None |
-
-**Dependency Rule:** Dependencies flow inward only. Inner layers never import from outer layers.
 
 ## Design Patterns
 
