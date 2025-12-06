@@ -10,17 +10,17 @@ graph TB
         mcp[MCP Server<br/>Claude Desktop]
     end
 
-    subgraph application["Application Layer (API Server)"]
+    subgraph application["API Layer"]
         api[FastAPI Application<br/>Python 3.13]
         auth[Auth Middleware<br/>JWT Validation]
     end
 
-    subgraph async["Async Processing Layer"]
+    subgraph async["Application Layer (Async)"]
         queue[(Redis Queue<br/>Message Broker)]
         worker[ARQ Workers<br/>20 concurrent]
     end
 
-    subgraph domain["Domain Layer (Metrics)"]
+    subgraph infra["Infra Layer (Metrics)"]
         collectors[Metrics Collection Service]
         ruff[Ruff]
         radon[Radon]
@@ -68,17 +68,18 @@ graph TB
     classDef appStyle fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px,color:#000
     %% Orange: Async/Queue Processing
     classDef queueStyle fill:#FFE0B2,stroke:#E65100,stroke-width:2px,color:#000
-    %% Purple: Domain/Core Logic
-    classDef domainStyle fill:#E1BEE7,stroke:#6A1B9A,stroke-width:2px,color:#000
+    %% Purple: Infrastructure/Metrics
+    classDef infraStyle fill:#E1BEE7,stroke:#6A1B9A,stroke-width:2px,color:#000
     %% Teal: Data/Persistence
     classDef dataStyle fill:#B2DFDB,stroke:#00695C,stroke-width:2px,color:#000
     %% Red: External Dependencies
     classDef externalStyle fill:#FFCDD2,stroke:#C62828,stroke-width:2px,color:#000
 
     class user,frontend,mcp clientStyle
-    class api,auth appStyle
+    class api appStyle
+    class auth externalStyle
     class queue,worker queueStyle
-    class collectors,ruff,radon,vulture,bandit,pmd,ast,git domainStyle
+    class collectors,ruff,radon,vulture,bandit,pmd,ast,git infraStyle
     class db dataStyle
     class auth0 externalStyle
 
@@ -86,18 +87,18 @@ graph TB
     style presentation fill:#F5F5F5,stroke:#1565C0,stroke-width:2px
     style application fill:#F5F5F5,stroke:#2E7D32,stroke-width:2px
     style async fill:#F5F5F5,stroke:#E65100,stroke-width:2px
-    style domain fill:#F5F5F5,stroke:#6A1B9A,stroke-width:2px
+    style infra fill:#F5F5F5,stroke:#6A1B9A,stroke-width:2px
     style persistence fill:#F5F5F5,stroke:#00695C,stroke-width:2px
     style external fill:#F5F5F5,stroke:#C62828,stroke-width:2px
 ```
 
 **Legend:**
 - **Blue** (Presentation): User-facing components
-- **Green** (Application): Business logic and API
+- **Green** (API): Business logic and API
 - **Orange** (Async): Background job processing
-- **Purple** (Domain): Core analysis functionality
+- **Purple** (Infrastructure): Metrics collectors and external adapters
 - **Teal** (Data): Persistence layer
-- **Red** (External): Third-party services
+- **Red** (Auth): Auth services and middleware
 
 **Data Flow:**
 1. User uploads code via frontend or MCP Server (Claude Desktop)
@@ -223,7 +224,7 @@ sequenceDiagram
 # Device Auth Flow (MCP)
 
 ```mermaid
-%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#FCE4EC','primaryTextColor':'#000','primaryBorderColor':'#C2185B','lineColor':'#C2185B','secondaryColor':'#FFF3E0','tertiaryColor':'#F1F8E9','noteBkgColor':'#FCE4EC','noteTextColor':'#000','noteBorderColor':'#C2185B','actorBorder':'#C2185B','actorBkg':'#ffffff','actorTextColor':'#000','actorLineColor':'#C2185B','signalColor':'#C2185B','signalTextColor':'#000','labelBoxBkgColor':'#FCE4EC','labelBoxBorderColor':'#C2185B','labelTextColor':'#000','loopTextColor':'#000','activationBorderColor':'#C2185B','activationBkgColor':'#FCE4EC','sequenceNumberColor':'#000','altBorderColor':'#F57C00','altBkgColor':'#FFF8E1'}}}%%
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#FCE4EC','primaryTextColor':'#000','primaryBorderColor':'#C2185B','lineColor':'#C2185B','secondaryColor':'#FFF3E0','tertiaryColor':'#F1F8E9','noteBkgColor':'#FCE4EC','noteTextColor':'#000','noteBorderColor':'#C2185B','actorBorder':'#C2185B','actorBkg':'#ffffff','actorTextColor':'#000','actorLineColor':'#C2185B','signalColor':'#C2185B','signalTextColor':'#000','labelBoxBkgColor':'#FCE4EC','labelBoxBorderColor':'#C2185B','labelTextColor':'#000','loopTextColor':'#000','activationBorderColor':'#C2185B','activationBkgColor':'#FCE4EC','sequenceNumberColor':'#000'}}}%%
 sequenceDiagram
    participant U as User
    participant M as MCP Server
@@ -232,37 +233,22 @@ sequenceDiagram
 
    Note over U,A: OAuth Device Flow (RFC 8628)
 
-   M->>B: POST /api/auth/device/code
-   B->>A: Request device code
-   A-->>B: device_code, user_code, verification_uri
-   B-->>M: Return codes to display
+   M->>B: Request device code
+   B->>A: Forward request
+   A-->>B: device_code + user_code + URL
+   B-->>M: Return codes
 
-   M->>U: Display: "Visit URL, enter code"
-   U->>A: Visit verification URL
-   U->>A: Enter user_code + login
+   M->>U: "Visit URL, enter code"
+   U->>A: Visit URL + login
 
-   loop Poll for token
-       M->>B: POST /api/auth/device/token
+   loop Poll until authorized
+       M->>B: Check authorization
        B->>A: Poll with device_code
-       alt Pending
-           A-->>B: authorization_pending
-           B-->>M: status: pending
-       else Authorized
-           A-->>B: access_token, refresh_token
-           B-->>M: Return tokens
-       end
    end
-
-   M->>M: Store tokens locally
-   M->>B: API requests with JWT
-   B->>A: Verify JWT
-   A-->>B: Token valid
-   B-->>M: Response
-
-   M->>B: POST /api/auth/device/refresh
-   B->>A: Refresh request
-   A-->>B: New access_token
+   A-->>B: access_token
    B-->>M: Return token
+
+   M->>B: API requests with JWT
 ```
 
 # Code analysis flow
@@ -297,12 +283,12 @@ flowchart LR
     style A1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
     style A2 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
     style B fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
-    style C1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
-    style C2 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
+    style C1 fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
+    style C2 fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
     style D fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
     style E fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
     style F fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
-    style G fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#000
+    style G fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
     style H fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#000
     style L fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#000
 
@@ -356,10 +342,10 @@ subgraph Device["Device Auth (MCP)"]
 subgraph Public["Public"]
        C1["GET /health"]
  end
-   style A1 fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
-   style A2 fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
-   style A3 fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
-   style A4 fill:#EDE7F6,stroke:#673AB7,stroke-width:2px,color:#000
+   style A1 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
+   style A2 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
+   style A3 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
+   style A4 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
    style B2 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
    style B3 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
    style B4 fill:#E3F2FD,stroke:#1976D2,stroke-width:2px,color:#000
@@ -367,14 +353,14 @@ subgraph Public["Public"]
    style D1 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
    style D2 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
    style D3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
-   style E1 fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
-   style E2 fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
-   style E3 fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
+   style E1 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
+   style E2 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
+   style E3 fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
    style C1 fill:#E8F5E9,stroke:#388E3C,stroke-width:2px,color:#000
-   style Async fill:transparent,stroke:#673AB7,stroke-width:2px,color:#000
+   style Async fill:transparent,stroke:#1976D2,stroke-width:2px,color:#000
    style History fill:transparent,stroke:#1976D2,stroke-width:2px,color:#000
    style Auth2 fill:transparent,stroke:#F57C00,stroke-width:2px,color:#000
-   style Device fill:transparent,stroke:#C2185B,stroke-width:2px,color:#000
+   style Device fill:transparent,stroke:#F57C00,stroke-width:2px,color:#000
    style Public fill:transparent,stroke:#388E3C,stroke-width:2px,color:#000
 ```
 
@@ -434,7 +420,7 @@ subgraph Analysis[" "]
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#E3F2FD','primaryTextColor':'#000','primaryBorderColor':'#1976D2','lineColor':'#1976D2','secondaryColor':'#FFF3E0','tertiaryColor':'#F1F8E9','edgeLabelBackground':'#ffffff','clusterBkg':'#ffffff','clusterBorder':'#1976D2','titleColor':'#000'}}}%%
-flowchart TB
+flowchart LR
    A["API Request"]
    B["CORS Check"]
    C["Rate Limit"]
@@ -500,17 +486,17 @@ sequenceDiagram
 
 This sequence diagram shows the chronological interactions between all actors in the async job queue system.
 
-# Testing
+# CI/CD Flow
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#E3F2FD','primaryTextColor':'#000','primaryBorderColor':'#1976D2','lineColor':'#1976D2','secondaryColor':'#FFF3E0','tertiaryColor':'#F1F8E9','edgeLabelBackground':'#ffffff','clusterBkg':'#ffffff','clusterBorder':'#1976D2','titleColor':'#000'}}}%%
-flowchart TD
+flowchart LR
    PR["Pull Request"]
    GH["GitHub Actions"]
 
    subgraph Backend["Backend (Python)"]
       BLint["Ruff Lint"]
-      BTest["Pytest<br/>618 tests, 85%+ coverage"]
+      BTest["Pytest<br/>85%+ coverage"]
    end
 
    subgraph Frontend["Frontend (TypeScript)"]
@@ -602,15 +588,15 @@ erDiagram
 config:
  theme: base
  themeVariables:
-   primaryColor: '#FCE4EC'
+   primaryColor: '#FFF3E0'
    primaryTextColor: '#000'
-   primaryBorderColor: '#C2185B'
-   lineColor: '#C2185B'
+   primaryBorderColor: '#F57C00'
+   lineColor: '#F57C00'
    secondaryColor: '#FFF3E0'
    tertiaryColor: '#F1F8E9'
    edgeLabelBackground: '#ffffff'
    clusterBkg: '#ffffff'
-   clusterBorder: '#C2185B'
+   clusterBorder: '#F57C00'
    titleColor: '#000'
 ---
 flowchart TB
@@ -644,16 +630,16 @@ flowchart TB
     api <-->|OAuth| auth0
 
     style desktop fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#000
-    style server fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
-    style tools fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
-    style client fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
-    style auth_mod fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
+    style server fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
+    style tools fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
+    style client fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
+    style auth_mod fill:#FFF3E0,stroke:#F57C00,stroke-width:2px,color:#000
     style tokens fill:#B2DFDB,stroke:#00695C,stroke-width:2px,color:#000
     style api fill:#C8E6C9,stroke:#2E7D32,stroke-width:2px,color:#000
     style auth0 fill:#FFCDD2,stroke:#C62828,stroke-width:2px,color:#000
 
     style claude fill:#F5F5F5,stroke:#1565C0,stroke-width:2px
-    style mcp fill:#F5F5F5,stroke:#C2185B,stroke-width:2px
+    style mcp fill:#F5F5F5,stroke:#F57C00,stroke-width:2px
     style backend fill:#F5F5F5,stroke:#2E7D32,stroke-width:2px
     style external fill:#F5F5F5,stroke:#C62828,stroke-width:2px
 ```
