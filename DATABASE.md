@@ -513,19 +513,7 @@ psql -U vibe8 vibe8_dev < backup.sql
 
 **Production (Google Cloud Platform)**:
 
-For production deployments using containerized PostgreSQL, implement automated backups to Cloud Storage:
-
-```bash
-# Automated backup script (schedule with Cloud Scheduler or cron)
-pg_dump -U vibe8 vibe8_prod | gzip | gsutil cp - gs://YOUR_BUCKET/backups/backup-$(date +%Y%m%d-%H%M%S).sql.gz
-
-# Restore from backup
-gsutil cp gs://YOUR_BUCKET/backups/backup-YYYYMMDD-HHMMSS.sql.gz - | gunzip | psql -U vibe8 vibe8_prod
-```
-
-**Note**: If using **Google Cloud SQL** (managed PostgreSQL), backups are automated. See [Cloud SQL Backup Documentation](https://cloud.google.com/sql/docs/postgres/backup-recovery).
-
-**Alternative**: Use Google Kubernetes Engine (GKE) with persistent volumes for containerized deployments with StatefulSets.
+For production deployments, PostgreSQL runs as a Docker container on a GCP VM. See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions.
 
 ### Disaster Recovery
 

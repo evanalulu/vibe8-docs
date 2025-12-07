@@ -20,7 +20,7 @@ Complete API documentation for the Vibe8 backend REST API.
 ## Base URL
 
 - **Development**: `http://127.0.0.1:8000`
-- **Production**: `https://your-deployed-backend.com`
+- **Production**: `https://vibe8.me`
 
 ## Authentication
 

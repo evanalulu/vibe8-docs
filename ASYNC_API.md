@@ -137,9 +137,7 @@ save 300 10   # After 5 min if 10+ keys changed
 save 60 10000 # After 1 min if 10000+ keys changed
 ```
 
-**Google Cloud Memorystore**: Configure automatic backups and high availability for production.
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for infrastructure setup.
+**Production**: Redis runs as a Docker container with AOF persistence. See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions.
 
 ## Worker Scaling
 
