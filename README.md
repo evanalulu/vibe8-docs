@@ -9,7 +9,7 @@ A full-stack code quality analysis platform that provides comprehensive static a
 **Auth**: Auth0 OAuth 2.0
 **Infrastructure**: Docker • Docker Compose
 
-For complete technology stack and project structure, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For complete technology stack and project structure, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Features
 
@@ -45,7 +45,7 @@ Choose your preferred setup method:
 ### Prerequisites
 
 - **Docker Desktop**: Container platform ([download](https://www.docker.com/products/docker-desktop/))
-- **Auth0 Account**: For authentication ([setup guide](docs/AUTH.md))
+- **Auth0 Account**: For authentication ([setup guide](AUTH.md))
 
 ### 1. Install Docker Desktop
 
@@ -82,7 +82,7 @@ Create `.env` file in the project root (used by Docker Compose):
 cp .env.example .env
 ```
 
-Edit `.env` and set your Auth0 credentials (get from [Auth0 Dashboard](https://manage.auth0.com/) — see [Setup Guide](docs/AUTH.md) or [Quick Setup](docs/AUTH.md#quick-setup-already-configured) if already configured):
+Edit `.env` and set your Auth0 credentials (get from [Auth0 Dashboard](https://manage.auth0.com/) — see [Setup Guide](AUTH.md) or [Quick Setup](AUTH.md#quick-setup-already-configured) if already configured):
 
 ```bash
 # Required Auth0 settings
@@ -149,7 +149,7 @@ Before you begin, you'll need:
 - **PostgreSQL 15+**: Database to store analysis results
 - **Redis 7+**: In-memory data store for background job processing
 - **PMD 7.0+**: Tool for duplicate code detection
-- **Auth0 Account**: For secure user authentication ([setup guide](docs/AUTH.md))
+- **Auth0 Account**: For secure user authentication ([setup guide](AUTH.md))
 
 ### 1. Install Dependencies
 
@@ -352,7 +352,7 @@ cp .env.example .env
 
 Edit `.env` with your Auth0 credentials and other settings:
 
-**Required Auth0 Settings** (get from [Auth0 Dashboard](https://manage.auth0.com/) — see [Setup Guide](docs/AUTH.md) or [Quick Setup](docs/AUTH.md#quick-setup-already-configured) if already configured):
+**Required Auth0 Settings** (get from [Auth0 Dashboard](https://manage.auth0.com/) — see [Setup Guide](AUTH.md) or [Quick Setup](AUTH.md#quick-setup-already-configured) if already configured):
 ```bash
 # Backend Auth0
 AUTH0_DOMAIN=your-tenant.auth0.com
@@ -444,7 +444,7 @@ brew services stop redis
 
 ## Testing
 
-See **[docs/TESTING.md](docs/TESTING.md)** for complete testing guide including:
+See **[TESTING.md](TESTING.md)** for complete testing guide including:
 - Test structure and organization
 - Writing unit and integration tests
 - Using fixtures and helpers
@@ -580,18 +580,18 @@ Results are returned as JSON with this structure:
 Note: Per-file metrics are available via GET /api/metrics/file-tree/{run_id}
 ```
 
-Full schema documentation: [docs/API.md](docs/API.md)
+Full schema documentation: [API.md](API.md)
 
 ## Documentation
 
-- **[Architecture Guide](docs/ARCHITECTURE.md)** - System design, tech stack, project structure
-- **[Design Patterns](docs/DESIGN.md)** - Design patterns, coding standards
-- **[API Reference](docs/API.md)** - Complete endpoint documentation
-- **[Authentication Setup](docs/AUTH.md)** - Auth0 OAuth 2.0 configuration
-- **[Database Schema](docs/DATABASE.md)** - PostgreSQL tables and migrations
-- **[Metrics Reference](docs/METRICS.md)** - Detailed metrics specifications
-- **[MCP Server](docs/MCP.md)** - Claude Desktop integration via Model Context Protocol
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment (Google Cloud Platform)
+- **[Architecture Guide](ARCHITECTURE.md)** - System design, tech stack, project structure
+- **[Design Patterns](DESIGN.md)** - Design patterns, coding standards
+- **[API Reference](API.md)** - Complete endpoint documentation
+- **[Authentication Setup](AUTH.md)** - Auth0 OAuth 2.0 configuration
+- **[Database Schema](DATABASE.md)** - PostgreSQL tables and migrations
+- **[Metrics Reference](METRICS.md)** - Detailed metrics specifications
+- **[MCP Server](MCP.md)** - Claude Desktop integration via Model Context Protocol
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment (Google Cloud Platform)
 
 
 ## License
@@ -600,4 +600,4 @@ This project is part of the Vibe8 code quality platform.
 
 ---
 
-**Need help?** Check the [documentation](docs/) or open an issue on GitHub.
+**Need help?** Check the [documentation]() or open an issue on GitHub.
